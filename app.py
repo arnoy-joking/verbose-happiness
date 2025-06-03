@@ -1,54 +1,34 @@
-from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled
-from langdetect import detect
+from flask import Flask, jsonify, request
+from youtube_transcript_api import YouTubeTranscriptApi
 import re
-import time
 
 app = Flask(__name__)
-CORS(app)
 
 @app.route('/transcript', methods=['GET'])
 def get_transcript():
-    url = request.args.get('url')
-    video_id = extract_video_id(url)
-
-    if not video_id:
-        return jsonify({"error": "Invalid YouTube URL"}), 400
-
-    transcript = None
-
-    for attempt in range(4):
-        try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
-            break
-        except TranscriptsDisabled:
-            return jsonify({"error": "Transcripts are disabled for this video."}), 403
-        except:
-            try:
-                transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['bn'])
-                break
-            except:
-                time.sleep(1)
-                continue
-
-    if not transcript:
-        return jsonify({"error": "Transcript not found after 4 attempts"}), 500
-
+    video_id = request.args.get('video_id')
+    if not video_id or len(video_id) != 11:
+        return jsonify({"error": "Invalid YouTube video ID"}), 400
+    
     try:
-        sample_text = " ".join([entry['text'] for entry in transcript[:5]])
-        lang = detect(sample_text)
-    except:
-        lang = "unknown"
-
-    formatted = format_transcript(transcript)
-
-    return jsonify({
-        "transcript": formatted,
-        "language": lang
-    })
+        # Try to get transcript without specifying language
+        transcript = YouTubeTranscriptApi.get_transcript(
+            video_id,
+            languages=None  # Fetch any available language
+        )
+        return jsonify({
+            "video_id": video_id,
+            "transcript": transcript,
+            "transcript_text": " ".join([t['text'] for t in transcript])
+        })
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "message": "No transcript available for this video"
+        }), 404
 
 def extract_video_id(url):
+    # Extract ID from URL if provided instead of ID
     patterns = [
         r'(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})',
         r'(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})',
@@ -60,15 +40,5 @@ def extract_video_id(url):
             return match.group(1)
     return None
 
-def format_transcript(transcript):
-    return "\n".join(
-        f"[{entry['start']:.2f}s] {entry['text']}"
-        for entry in transcript
-    )
-
-@app.route('/')
-def serve_index():
-    return send_from_directory('.', 'index.html')
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
