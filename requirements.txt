@@ -1,0 +1,5 @@
+flask
+flask-cors
+youtube_transcript_api
+langdetect
+gunicorn

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Transcript Summarizer</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #121212; color: #ffffff; padding: 2rem; }
+        input, textarea, button { width: 100%; margin: 1rem 0; padding: 1rem; border-radius: 10px; border: none; }
+        input, textarea { background-color: #1e1e1e; color: #00ffcc; }
+        button { background-color: #00ffcc; color: #000; cursor: pointer; font-weight: bold; }
+        #summary { height: 300px; }
+    </style>
+    <script src="https://js.puter.com/v2/"></script>
+</head>
+<body>
+    <h1>🎥 ইউটিউব ভিডিও সারাংশ</h1>
+    <input type="text" id="yt-url" placeholder="ইউটিউব ভিডিও লিংক দিন">
+    <button onclick="getTranscript()">🎯 সারাংশ তৈরি করুন</button>
+    <textarea id="summary" readonly placeholder="এখানে সারাংশ আসবে..."></textarea>
+    <script>
+        async function getTranscript() {
+            const url = document.getElementById("yt-url").value;
+            const summaryBox = document.getElementById("summary");
+            summaryBox.value = "⏳ লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...";
+
+            try {
+                const response = await fetch(`/transcript?url=${encodeURIComponent(url)}`);
+                const data = await response.json();
+
+                if (data.transcript) {
+                    const chatPrompt = `নীচের ভিডিও ট্রান্সক্রিপ্টটা পড়ে বাংলায় সহজ ভাষায় সারাংশ কর:
+
+${data.transcript}`;
+                    const gpt = await puter.ai.chat(chatPrompt);
+                    summaryBox.value = gpt;
+                } else {
+                    summaryBox.value = "😢 সারাংশ তৈরি করা গেল না: " + (data.error || "অজানা ত্রুটি");
+                }
+            } catch (error) {
+                summaryBox.value = "❌ ত্রুটি: " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
